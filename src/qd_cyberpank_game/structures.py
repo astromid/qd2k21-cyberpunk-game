@@ -29,6 +29,7 @@ class Transaction:
 
 @dataclass
 class InvestmentBid:
+    id: Optional[int]
     uid: str
     market: str
     amount: float

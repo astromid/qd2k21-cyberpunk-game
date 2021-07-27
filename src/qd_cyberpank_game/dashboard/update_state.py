@@ -9,7 +9,7 @@ def update_game_state(uid: str) -> None:
     with placeholder.beta_container():
         st.write('Загрузка актуальных данных...')
         progressbar = st.progress(0)
-        st.session_state.cycle = db.get_current_cycle(db_conn_str, db_schema['cycles'])
+        st.session_state.cycle, st.session_state.fund_speed = db.get_current_cycle(db_conn_str, db_schema['cycles'])
         progressbar.progress(10)
         st.session_state.users = db.get_users(db_conn_str, db_schema['users'])
         progressbar.progress(20)
