@@ -1,26 +1,30 @@
 import streamlit as st
 
+from qd_cyberpank_game.db import auth
+
 
 def login_callback():
-    if st.session_state.login == 'root' and st.session_state.password == 'root':
-        st.session_state.logged_user = 'root'
-    else:
-        st.session_state.logged_user = None
+    st.session_state.user = auth(
+        st.session_state.login,
+        st.session_state.password,
+        st.session_state.db_conn_str,
+        st.session_state.db_schema['users'],
+    )
 
 
 def logout_callback():
-    st.session_state.logged_user = None
+    st.session_state.user = None
 
 
 def login_form():
     with st.form(key='login_form'):
-        st.text('Corporate information system')
-        st.text_input('Login:', key='login')
-        st.text_input('Password:', type='password', key='password')
-        if st.form_submit_button('Login', on_click=login_callback):
-            if not st.session_state.logged_user:
-                st.error('Wrong login or password')
+        st.text('Корпоративная система v2.0.77')
+        st.text_input('Логин:', key='login')
+        st.text_input('Пароль:', type='password', key='password')
+        if st.form_submit_button('Войти', on_click=login_callback):
+            if not st.session_state.user:
+                st.error('Неверный логин или пароль')
 
 
 def logout_button():
-    st.button('Logout', on_click=logout_callback)
+    st.button('Выход из системы', on_click=logout_callback)
