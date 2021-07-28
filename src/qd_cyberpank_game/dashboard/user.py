@@ -1,4 +1,5 @@
 from typing import Tuple
+
 import pandas as pd
 import streamlit as st
 from qd_cyberpank_game.dashboard.markets import markets_investment_form, markets_status
@@ -19,13 +20,13 @@ def get_balance(transactions_df: pd.DataFrame, user: User, cycle: int) -> Tuple[
 
 def make_balance_str(balance, cycle_balance, frozen_balance) -> str:
     if cycle_balance > 0:
-        cycle_balance_str = f"<span style='color: {ThemeColors.GREEN.value};'>+{cycle_balance:,}</span>:atom_symbol:"
+        cycle_balance_str = f"<span style='color: {ThemeColors.GREEN.value};'>+${cycle_balance / 1000000:.2f} млн.</span>"
     elif cycle_balance < 0:
-        cycle_balance_str = f"<span style='color: {ThemeColors.RED.value};'>{cycle_balance:,}</span>:atom_symbol:"
+        cycle_balance_str = f"<span style='color: {ThemeColors.RED.value};'>-${abs(cycle_balance) / 1000000:.2f} млн.</span>"
     else:
-        cycle_balance_str = f"<span style='color: {ThemeColors.GRAY.value};'>+{cycle_balance:,}</span>:atom_symbol:"
-    frozen_balace_str = f"<span style='color: {ThemeColors.GRAY.value};'>-{frozen_balance:,}</span>:atom_symbol: инвестировано"
-    return f'## Баланс: {balance:,}:atom_symbol: ({cycle_balance_str}) / ({frozen_balace_str})'
+        cycle_balance_str = f"<span style='color: {ThemeColors.GRAY.value};'>+${cycle_balance / 1000000:.2f} млн.</span>"
+    frozen_balace_str = f"<span style='color: {ThemeColors.GRAY.value};'>-${frozen_balance / 1000000:.2f} млн.</span> инвестировано"
+    return f'## Баланс: ${balance / 1000000:.2f} млн. ({cycle_balance_str}) / {frozen_balace_str}'
 
 
 def user_dashboard():
@@ -45,6 +46,7 @@ def user_dashboard():
     st.title(f'{st.session_state.user.name} Corporation')
     st.markdown(f'# Система корпоративного управления CP 2.0.20')
     st.markdown(f'## Цикл: {cycle}')
+    st.markdown(f'### Скорость инвестирования капитала: ${st.session_state.fund_speed / 1000000:.2f} млн. / мин')
     st.markdown(make_balance_str(st.session_state.balance, cycle_balance, frozen_balance), unsafe_allow_html=True)
     stocks_block()
     markets_status()

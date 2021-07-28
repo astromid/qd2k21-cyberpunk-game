@@ -17,9 +17,8 @@ TOOLTIP_JS_CODE = ''.join([
     'function(params){',
     'var bulletItem = (field, value) => ',
     "'<p>' + params.marker + ' ' + field + ' ' + '<b>' + value + '</b></p>';",
-    "let tip = bulletItem('Инвестировано', params.data.amount);",
-    "tip += bulletItem('Прибыль', params.data.income);",
-    "tip += bulletItem('Прибыль', params.data.profit);",
+    "let tip = bulletItem('Инвестиции', params.data.amount_str);",
+    "tip += bulletItem('Прибыль', params.data.income_str);",
     "tip += bulletItem('Множитель x', params.data.multiplier);",
     'return tip;',
     '}',
@@ -27,7 +26,7 @@ TOOLTIP_JS_CODE = ''.join([
 
 
 def get_node_size_px(capacity, min_capacity) -> float:
-    return 70 * math.log(capacity / min_capacity, 5)
+    return 30 * (math.log(capacity / min_capacity, 10) + 1)
 
 
 def get_node_color(investment: float, income: float) -> str:
@@ -48,7 +47,7 @@ def make_markets_graph(markets_df: pd.DataFrame, investments_df: pd.DataFrame, h
     graph = Graph()
     graph_nodes = [{
         'name': market['name'],
-        'symbolSize': get_node_size_px(market['capacity'], 10000),
+        'symbolSize': get_node_size_px(market['capacity'], min_capacity),
     } for market in markets_df.to_dict('records')]
     graph_links = [{
         'source': link['name'],
@@ -59,18 +58,21 @@ def make_markets_graph(markets_df: pd.DataFrame, investments_df: pd.DataFrame, h
         if not node_investment.empty:
             node_investment = node_investment.to_dict('records')[0]
             node['amount'] = node_investment['amount']
+            node['amount_str'] = f"${(node['amount'] / 1000000):.2f} млн."
             node['income'] = node_investment['income']
-            node['profit'] = f"{node_investment['profit']:.2%}"
+            node['income_str'] = f"${(node['income'] / 1000000):.2f} млн. ({node['income'] / node['amount']:.2%})"
             node['multiplier'] = 1
         else:
             node['amount'] = 0
+            node['amount_str'] = f"{0:.2f} млн."
             node['income'] = 0
-            node['profit'] = f'{0:.2%}'
+            node['income_str'] = f"${0:.2f} млн. ({0:.2%})"
             node['multiplier'] = 1
         node['symbol'] = 'roundRect' if node['name'] == home_market else 'circle'
         node['itemStyle'] = {'color': get_node_color(node['amount'], node['income'])}
     
     unlocked_markets = [home_market]
+
     for link in graph_links:
         for node in graph_nodes:
             if node['name'] == link['source']:
@@ -89,8 +91,8 @@ def make_markets_graph(markets_df: pd.DataFrame, investments_df: pd.DataFrame, h
     st.session_state.unlocked_markets = np.unique(unlocked_markets).tolist()
     graph.add(
         'Markets',
-        repulsion=2000,
-        edge_length=130,
+        repulsion=1800,
+        edge_length=100,
         edge_symbol=['arrow', 'arrow'],
         edge_symbol_size=8,
         label_opts=opts.LabelOpts(position='inside'),
@@ -108,30 +110,29 @@ def make_markets_graph(markets_df: pd.DataFrame, investments_df: pd.DataFrame, h
 def markets_status():
     markets_df = st.session_state.markets
     prev_investments_df = st.session_state.prev_investments
-    prev_investments_df['profit'] = prev_investments_df['income'] / prev_investments_df['amount']
     graph = make_markets_graph(markets_df=markets_df, investments_df=prev_investments_df, home_market=st.session_state.user.home_market)
     col1, col2 = st.beta_columns([1, 1])
     with col1:
         st.markdown('<p style="text-align: center;"> Состояние графа рынков в прошлом периоде </p>', unsafe_allow_html=True)
-        st_pyecharts(graph, height='600px')
+        st_pyecharts(graph, height='500px')
     with col2:
         st.markdown('<p style="text-align: center;"> Графики инвестиций по рынкам за прошлый период </p>', unsafe_allow_html=True)
-        investments_nonzero_df = prev_investments_df[prev_investments_df['amount'] != 0]
+        investments_nonzero_df = prev_investments_df[(prev_investments_df['amount'] != 0) & (prev_investments_df['status'] == 1)]
         if investments_nonzero_df.empty:
             st.markdown('<p style="text-align: center;"> В прошлом периоде инвестиций не было </p>', unsafe_allow_html=True)
         else:
-            st.altair_chart(alt.Chart(investments_nonzero_df).mark_bar().encode(
-                    x='market',
-                    y='amount',
-                    color=alt.condition(alt.datum.profit > 0, alt.value(ThemeColors.GREEN.value), alt.value(ThemeColors.RED.value)),
-                ).properties(width=600, height=400))
-            st.altair_chart(alt.Chart(investments_nonzero_df).mark_bar().encode(
-                    x='market',
-                    y='profit',
-                    color=alt.condition(alt.datum.profit > 0, alt.value(ThemeColors.GREEN.value), alt.value(ThemeColors.RED.value)),
-                ).properties(width=600, height=400))
-    st.markdown(f'### Вложения {st.session_state.user.name} Corporation за предыдущий период')
-    st.dataframe(prev_investments_df.drop('uid', axis=1))
+            investments_melt = investments_nonzero_df[['market', 'amount', 'income']].copy()
+            investments_melt['amount'] /= 1000000
+            investments_melt['income'] /= 1000000
+            investments_melt = investments_melt.melt('market')
+            st.altair_chart(alt.Chart(investments_melt).mark_bar().encode(
+                    x=alt.X('variable', axis=alt.Axis(title='Рынок')),
+                    y=alt.Y('value:Q', axis=alt.Axis(title='млн. $')),
+                    column='market:O',
+                    color=alt.condition(alt.datum.value > 0, alt.value(ThemeColors.GREEN.value), alt.value(ThemeColors.RED.value)),
+                ).properties(width=80, height=400))
+    st.markdown(f'### Инвестиции {st.session_state.user.name} Corporation за предыдущий период')
+    st.dataframe(prev_investments_df.drop(['uid', 'id'], axis=1))
 
 
 def markets_investment_form():
@@ -151,11 +152,12 @@ def markets_investment_form():
 
             col1, col2 = st.beta_columns([1, 1])
             with col1:
-                st.number_input(label=f'Инвестиции в {market}', key=f'investment_{market}', min_value=0.0)
+                st.number_input(label=f'Инвестиции в {market} (млн. $)', key=f'investment_{market}', min_value=0.0, step=0.5)
             with col2:
                 bid_status = None
                 if not investments_df.empty:    
-                    bid = investments_df.loc[investments_df['market'] == market, 'status']
+                    active_investments = investments_df[investments_df['status'] != 0]
+                    bid = active_investments.loc[active_investments['market'] == market, 'status']
                     if not bid.empty:
                         bid_status = bid.item()
 
@@ -171,11 +173,11 @@ def markets_investment_form():
         st.form_submit_button(label='Отправить заявку в SEC', on_click=markets_investment_callback)
         if st.session_state.frozen_markets:
             st.warning(f"На следующие рынки уже поданы заявки: {', '.join(frozen_markets)}. Эти заявки не будут обновлены.")
-            rejected_bids = getattr(st.session_state, 'rejected_bids', None)
-            if rejected_bids:
-                st.warning(f"Заявки на следующие рынки были отклонены из-за недостаточного баланса: {', '.join(rejected_bids)}")
+        rejected_bids = getattr(st.session_state, 'rejected_bids', None)
+        if rejected_bids:
+            st.warning(f"Заявки на следующие рынки были отклонены из-за недостаточного баланса: {', '.join(rejected_bids)}")
     st.markdown(f'### Открытые инвестиционные заявки:')
-    st.dataframe(investments_df.drop('uid', axis=1))
+    st.dataframe(investments_df.drop(['uid', 'id'], axis=1))
 
 
 def markets_investment_callback():
@@ -183,7 +185,7 @@ def markets_investment_callback():
     bids_balance = 0
     rejected_bids = []
     for market in st.session_state.unlocked_markets:
-        inv_amount = getattr(st.session_state, f'investment_{market}')
+        inv_amount = getattr(st.session_state, f'investment_{market}') * 1000000
         if inv_amount != 0 and market not in st.session_state.frozen_markets:
             bids_balance += inv_amount
             if bids_balance <= st.session_state.balance:
@@ -197,6 +199,7 @@ def markets_investment_callback():
                     status=-1,
                     cycle=st.session_state.cycle,
                     income=None,
+                    multiplier=None,
                 ))
             else:
                 rejected_bids.append(market)

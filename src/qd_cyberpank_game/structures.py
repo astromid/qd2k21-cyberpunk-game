@@ -38,3 +38,4 @@ class InvestmentBid:
     status: Optional[int]
     cycle: int
     income: Optional[float]
+    multiplier: Optional[float]

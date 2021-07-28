@@ -1,8 +1,5 @@
 import altair as alt
-import numpy as np
-import pandas as pd
 import streamlit as st
-from toolz.functoolz import do
 
 
 def stocks_block():
@@ -21,5 +18,5 @@ def stocks_block():
             points = line.mark_point().encode(opacity=alt.condition(nearest, alt.value(1), alt.value(0)))
             text = line.mark_text(align='left', dx=5, dy=-5).encode(text=alt.condition(nearest, 'price:Q', alt.value(' ')))
             rules = alt.Chart(stocks_df).mark_rule(color='gray').encode(x='cycle:Q').transform_filter(nearest)
-            layer = alt.layer(line, selectors, points, rules, text).properties(width=800, height=450).interactive()
+            layer = alt.layer(line, selectors, points, rules, text).properties(width=500, height=450).interactive()
             st.altair_chart(layer)
